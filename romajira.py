@@ -13,11 +13,11 @@ MIN_W = 40
 MIN_H = 11
 MIN_LEVEL = 1
 MAX_LEVEL = 6
-QUIT_KEYS = (3, 27)
-TABLE_KEYS = (6, 10)
-SCRIPT_KEY = 9
-ENTER_KEYS = (13, curses.KEY_ENTER)
-BACKSPACE_KEYS = (8, 127, curses.KEY_BACKSPACE)
+QUIT_KEYS = (3, 27)  # ctrl+c and esc
+TABLE_KEYS = (6, 10)  # ctrl+f and ctrl+j
+SCRIPT_KEY = 9  # tab
+ENTER_KEYS = (13, curses.KEY_ENTER)  # enter
+BACKSPACE_KEYS = (8, 127, curses.KEY_BACKSPACE)  # backspace and delete
 DIFF_UP = (43, 61)  # '+' and '='
 DIFF_DOWN = 45  # '-'
 
