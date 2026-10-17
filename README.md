@@ -32,4 +32,3 @@ The drill starts at the maximum difficulty, where every kana is in the random po
 | 2     | up to "Common"                                  |
 | 1     | "Very common" only (12 kana)                    |
 
-The groupings come from `frequency.md`. The six kana that are in the pool but not listed there (を げ ぢ づ べ ぼ) are treated as the rarest tier, so they only appear at level 6. Changing difficulty re-rolls the current character from the new pool.
