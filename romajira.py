@@ -9,7 +9,8 @@ import unicodedata
 LBLW = 3
 CELLW = 8
 FIELD = 16
-MIN_W = 40
+HELP = "tab:script | difficulty:-/+ (=) | ctrl+f/j:table | enter | esc"
+MIN_W = len(HELP) + 1
 MIN_H = 11
 MIN_LEVEL = 1
 MAX_LEVEL = 6
@@ -178,18 +179,16 @@ TABLE_W = LBLW + 5 * CELLW
 TABLE_H = len(KANA_ROWS) + 2
 
 
-def to_kata(h):
-    return chr(ord(h) + 0x60)
+def to_kata(hiragana):
+    return chr(ord(hiragana) + 0x60)
 
 
-def kana(h, script):
-    return h if script == 0 else to_kata(h)
+def kana(hiragana, script):
+    return hiragana if script == 0 else to_kata(hiragana)
 
 
 def wlen(s):
-    return sum(
-        2 if unicodedata.east_asian_width(c) in ("W", "F") else 1 for c in s
-    )
+    return sum(2 if unicodedata.east_asian_width(c) in ("W", "F") else 1 for c in s)
 
 
 def pad(s, w):
@@ -209,11 +208,11 @@ def clip(s, w):
     return "".join(out)
 
 
-def put(scr, y, x, s):
+def put(scr, y, x, s, attr=curses.A_NORMAL):
     H, W = scr.getmaxyx()
     if 0 <= y < H and 0 <= x < W:
         try:
-            scr.addstr(y, x, clip(s, W - x))
+            scr.addstr(y, x, clip(s, W - x), attr)
         except curses.error:
             pass
 
@@ -221,16 +220,16 @@ def put(scr, y, x, s):
 def pool(script):
     out = []
     for _, cells in KANA_ROWS:
-        for c in cells:
-            if c is None:
+        for cell in cells:
+            if cell is None:
                 continue
-            h, r = c
+            hiragana, romaji = cell
             out.append(
                 (
-                    kana(h, script),
-                    r,
-                    {r} | ALT.get(h, set()),
-                    LEVEL.get(h, MAX_LEVEL),
+                    kana(hiragana, script),
+                    romaji,
+                    {romaji} | ALT.get(hiragana, set()),
+                    LEVEL.get(hiragana, MAX_LEVEL),
                 )
             )
     return out
@@ -240,74 +239,69 @@ POOLS = [pool(0), pool(1)]
 
 
 def pool_size(difficulty):
-    return sum(1 for e in POOLS[0] if e[3] <= difficulty)
+    return sum(1 for entry in POOLS[0] if entry[3] <= difficulty)
 
 
 def pick(script, difficulty, avoid=None):
-    p = [e for e in POOLS[script] if e[3] <= difficulty]
+    candidates = [entry for entry in POOLS[script] if entry[3] <= difficulty]
     while True:
-        ch, r, acc, _ = random.choice(p)
-        if ch != avoid:
-            return ch, r, acc
+        char, romaji, accepted, _ = random.choice(candidates)
+        if char != avoid:
+            return char, romaji, accepted
 
 
-def masked(r, accepted):
-    if len(r) < 2:
+def masked(romaji, accepted):
+    if len(romaji) < 2:
         return "*"
-    if r[-1] in accepted:
-        return r[:-1] + "*"
+    if romaji[-1] in accepted:
+        hint = romaji[:-1] + "*"
+        others = sorted(accepted - {romaji})
+        if others:
+            return hint + " / " + " / ".join(others)
+        return hint
     if random.getrandbits(1):
-        return r[:-1] + "*"
-    return "*" + r[-1]
+        return romaji[:-1] + "*"
+    return "*" + romaji[-1]
 
 
-def table_lines(script):
-    lines = []
-    for label, cells in KANA_ROWS:
-        parts = [pad(label, LBLW)]
-        for c in cells:
-            if c is None:
-                parts.append(" " * CELLW)
-            else:
-                h, r = c
-                parts.append(pad(kana(h, script) + " " + r, CELLW))
-        lines.append("".join(parts))
-    return lines
-
-
-def draw_table(scr, top, W, script):
-    lines = table_lines(script)
-    header = pad("", LBLW) + "".join(pad(v, CELLW) for v in "aiueo")
-    content = [header] + lines
+def draw_table(scr, top, W, script, difficulty):
     title = "Hiragana to romaji" if script == 0 else "Katakana to romaji"
-    inner = max(wlen(l) for l in content)
-    left = max(0, (W - inner) // 2)
-    put(scr, top, left + max(0, (inner - wlen(title)) // 2), title)
-    for i, l in enumerate(content):
-        put(scr, top + 1 + i, left, l)
+    left = max(0, (W - TABLE_W) // 2)
+    put(scr, top, left + max(0, (TABLE_W - wlen(title)) // 2), title)
+    header = pad("", LBLW) + "".join(pad(vowel, CELLW) for vowel in "aiueo")
+    put(scr, top + 1, left, header)
+    for row, (label, cells) in enumerate(KANA_ROWS):
+        y = top + 2 + row
+        x = left
+        put(scr, y, x, pad(label, LBLW))
+        x += LBLW
+        for cell in cells:
+            if cell is not None:
+                hiragana, romaji = cell
+                glyph = kana(hiragana, script)
+                put(scr, y, x, glyph + " " + romaji)
+                if LEVEL.get(hiragana, MAX_LEVEL) <= difficulty:
+                    put(scr, y, x + wlen(glyph) + 1, romaji, curses.A_BOLD)
+            x += CELLW
 
 
-def draw_core(scr, H, W, ch, user_input, message, correct, total, difficulty):
+def draw_core(scr, H, W, char, user_input, message, correct, total, difficulty):
     char_row = H - 6
     input_row = H - 4
     msg_row = H - 2
     lead = "What is this character:  ["
-    line = lead + ch + "]"
+    line = lead + char + "]"
     x = max(0, (W - wlen(line)) // 2)
-    x += x & 1
+    x += x & 1  # Aligning to even
     put(scr, char_row, x, line)
     field = "[" + user_input.ljust(FIELD) + "]"
     fx = max(0, (W - wlen(field)) // 2)
     put(scr, input_row, fx, field)
     if message:
         mx = max(0, (W - wlen(message)) // 2)
+        mx += mx & 1  # Aligning to even
         put(scr, msg_row, mx, message)
-    put(
-        scr,
-        H - 1,
-        1,
-        "tab:script | difficulty:-/+ (=) | ctrl+f/j:table | enter | esc",
-    )
+    put(scr, H - 1, 1, HELP)
     stats = "%d/%d" % (correct, total)
     put(scr, 0, max(1, W - wlen(stats) - 1), stats)
     diff = "difficulty %d/%d (%d kana)" % (
@@ -328,7 +322,7 @@ def main(scr):
     script = 0
     show_table = False
     difficulty = MAX_LEVEL
-    ch, romaji, accepted = pick(0, difficulty)
+    char, romaji, accepted = pick(0, difficulty)
     user_input = ""
     message = ""
     fails = 0
@@ -351,7 +345,7 @@ def main(scr):
             fits = W >= TABLE_W and H >= TABLE_H + 8
             if show_table:
                 if fits:
-                    draw_table(scr, 1, W, script)
+                    draw_table(scr, 1, W, script, difficulty)
                 else:
                     put(
                         scr,
@@ -359,9 +353,7 @@ def main(scr):
                         max(0, (W - 40) // 2),
                         "Table doesn't fit. Enlarge the terminal.",
                     )
-            draw_core(
-                scr, H, W, ch, user_input, message, correct, total, difficulty
-            )
+            draw_core(scr, H, W, char, user_input, message, correct, total, difficulty)
         scr.refresh()
         key = scr.getch()
         if key in QUIT_KEYS:
@@ -374,29 +366,32 @@ def main(scr):
             show_table = not show_table
         elif key == SCRIPT_KEY:
             script = 1 - script
-            ch, romaji, accepted = pick(script, difficulty)
+            char, romaji, accepted = pick(script, difficulty)
             user_input = ""
             message = ""
             fails = 0
         elif key in ENTER_KEYS:
-            total += 1
-            if user_input.strip().lower() in accepted:
-                correct += 1
-                ch, romaji, accepted = pick(script, difficulty, ch)
-                user_input = ""
-                message = ""
-                fails = 0
+            if not user_input.strip():
+                message = "🐱"  # easter egg
             else:
-                fails += 1
-                message = "Try again, it's " + (
-                    masked(romaji, accepted) if fails == 1 else romaji
-                )
+                total += 1
+                if user_input.strip().lower() in accepted:
+                    correct += 1
+                    char, romaji, accepted = pick(script, difficulty, char)
+                    user_input = ""
+                    message = ""
+                    fails = 0
+                else:
+                    fails += 1
+                    message = "Try again, it's " + (
+                        masked(romaji, accepted) if fails == 1 else romaji
+                    )
         elif key in BACKSPACE_KEYS:
             user_input = user_input[:-1]
         elif key == DIFF_DOWN:
             if difficulty > MIN_LEVEL:
                 difficulty -= 1
-                ch, romaji, accepted = pick(script, difficulty)
+                char, romaji, accepted = pick(script, difficulty)
                 user_input = ""
                 message = ""
                 fails = 0
@@ -405,7 +400,7 @@ def main(scr):
         elif key in DIFF_UP:
             if difficulty < MAX_LEVEL:
                 difficulty += 1
-                ch, romaji, accepted = pick(script, difficulty)
+                char, romaji, accepted = pick(script, difficulty)
                 user_input = ""
                 message = ""
                 fails = 0
