@@ -21,14 +21,10 @@ Reading kana has to become automatic before it's useful, and that only happens t
 
 ## Difficulty
 
-The drill starts at the maximum difficulty, where every kana is in the random pool. Press `-` to make it easier and `+` (or `=`) to make it harder; the current level is shown in the top-left corner together with how many kana are in play.
+The drill starts at the maximum difficulty, where every kana is in the random pool. Press `-` to make it easier and `+` (or `=`) to make it harder.
 
-| Level | Pool                                            |
-| ----- | ----------------------------------------------- |
-| 6     | all kana (includes "Rare in general text")      |
-| 5     | up to "Less frequent"                           |
-| 4     | up to "Less common"                             |
-| 3     | up to "Moderately common"                       |
-| 2     | up to "Common"                                  |
-| 1     | "Very common" only (12 kana)                    |
+Difficulty 6 covers all kana.
+
+Difficulty 1 covers only very common kana (12 symbols).
+
 
