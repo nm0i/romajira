@@ -4,7 +4,7 @@ romajira is a single-file terminal flashcard trainer for drilling the romaji rea
 
 ![romajira screenshot](scrshot.png)
 
-Run it with `python3 romajira.py`.
+Run it with `python3 romajira.py` or just `./romajira.py`.
 
 ## Dependencies
 
