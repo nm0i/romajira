@@ -18,3 +18,18 @@ Reading kana has to become automatic before it's useful, and that only happens t
 - A first miss reveals a masked hint (one character hidden); a second miss shows the full answer, and the character stays up until you get it right.
 - Tab switches between the hiragana and katakana pools.
 - Ctrl+F / Ctrl+J toggles a full kana reference table you can keep open while drilling.
+
+## Difficulty
+
+The drill starts at the maximum difficulty, where every kana is in the random pool. Press `-` to make it easier and `+` (or `=`) to make it harder; the current level is shown in the top-left corner together with how many kana are in play.
+
+| Level | Pool                                            |
+| ----- | ----------------------------------------------- |
+| 6     | all kana (includes "Rare in general text")      |
+| 5     | up to "Less frequent"                           |
+| 4     | up to "Less common"                             |
+| 3     | up to "Moderately common"                       |
+| 2     | up to "Common"                                  |
+| 1     | "Very common" only (12 kana)                    |
+
+The groupings come from `frequency.md`. The six kana that are in the pool but not listed there (を げ ぢ づ べ ぼ) are treated as the rarest tier, so they only appear at level 6. Changing difficulty re-rolls the current character from the new pool.

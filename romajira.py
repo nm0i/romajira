@@ -11,11 +11,15 @@ CELLW = 8
 FIELD = 16
 MIN_W = 40
 MIN_H = 11
+MIN_LEVEL = 1
+MAX_LEVEL = 6
 QUIT_KEYS = (3, 27)
 TABLE_KEYS = (6, 10)
 SCRIPT_KEY = 9
 ENTER_KEYS = (13, curses.KEY_ENTER)
 BACKSPACE_KEYS = (8, 127, curses.KEY_BACKSPACE)
+DIFF_UP = (43, 61)  # '+' and '='
+DIFF_DOWN = 45  # '-'
 
 KANA_ROWS = [
     ("", [("あ", "a"), ("い", "i"), ("う", "u"), ("え", "e"), ("お", "o")]),
@@ -96,6 +100,80 @@ ALT = {
     "ん": {"n", "nn"},
 }
 
+LEVEL = {
+    # 1  Very common
+    "い": 1,
+    "し": 1,
+    "う": 1,
+    "ん": 1,
+    "の": 1,
+    "か": 1,
+    "と": 1,
+    "に": 1,
+    "は": 1,
+    "た": 1,
+    "て": 1,
+    "る": 1,
+    # 2  Common
+    "な": 2,
+    "で": 2,
+    "す": 2,
+    "き": 2,
+    "く": 2,
+    "り": 2,
+    "れ": 2,
+    "ら": 2,
+    "も": 2,
+    "あ": 2,
+    # 3  Moderately common
+    "こ": 3,
+    "ま": 3,
+    "お": 3,
+    "け": 3,
+    "つ": 3,
+    "さ": 3,
+    "ち": 3,
+    "ど": 3,
+    "が": 3,
+    "み": 3,
+    "や": 3,
+    # 4  Less common
+    "わ": 4,
+    "え": 4,
+    "せ": 4,
+    "じ": 4,
+    "ほ": 4,
+    "だ": 4,
+    "ね": 4,
+    "そ": 4,
+    "よ": 4,
+    "ば": 4,
+    "め": 4,
+    # 5  Less frequent
+    "ふ": 5,
+    "ゆ": 5,
+    "へ": 5,
+    "ろ": 5,
+    "ひ": 5,
+    "び": 5,
+    "ご": 5,
+    "む": 5,
+    "ず": 5,
+    "ぎ": 5,
+    "ぶ": 5,
+    # 6  Rare in general text
+    "ぬ": 6,
+    "ぐ": 6,
+    "ざ": 6,
+    "ぞ": 6,
+    "ぜ": 6,
+    "ぱ": 6,
+    "ぽ": 6,
+    "ぴ": 6,
+    "ぷ": 6,
+    "ぺ": 6,
+}
+
 TABLE_W = LBLW + 5 * CELLW
 TABLE_H = len(KANA_ROWS) + 2
 
@@ -147,17 +225,28 @@ def pool(script):
             if c is None:
                 continue
             h, r = c
-            out.append((kana(h, script), r, {r} | ALT.get(h, set())))
+            out.append(
+                (
+                    kana(h, script),
+                    r,
+                    {r} | ALT.get(h, set()),
+                    LEVEL.get(h, MAX_LEVEL),
+                )
+            )
     return out
 
 
 POOLS = [pool(0), pool(1)]
 
 
-def pick(script, avoid=None):
-    p = POOLS[script]
+def pool_size(difficulty):
+    return sum(1 for e in POOLS[0] if e[3] <= difficulty)
+
+
+def pick(script, difficulty, avoid=None):
+    p = [e for e in POOLS[script] if e[3] <= difficulty]
     while True:
-        ch, r, acc = random.choice(p)
+        ch, r, acc, _ = random.choice(p)
         if ch != avoid:
             return ch, r, acc
 
@@ -198,7 +287,7 @@ def draw_table(scr, top, W, script):
         put(scr, top + 1 + i, left, l)
 
 
-def draw_core(scr, H, W, ch, user_input, message, correct, total):
+def draw_core(scr, H, W, ch, user_input, message, correct, total, difficulty):
     char_row = H - 6
     input_row = H - 4
     msg_row = H - 2
@@ -213,9 +302,20 @@ def draw_core(scr, H, W, ch, user_input, message, correct, total):
     if message:
         mx = max(0, (W - wlen(message)) // 2)
         put(scr, msg_row, mx, message)
-    put(scr, H - 1, 1, "tab:script | ctrl+f/j:table | enter | esc")
+    put(
+        scr,
+        H - 1,
+        1,
+        "tab:script | difficulty:-/+ (=) | ctrl+f/j:table | enter | esc",
+    )
     stats = "%d/%d" % (correct, total)
     put(scr, 0, max(1, W - wlen(stats) - 1), stats)
+    diff = "difficulty %d/%d (%d kana)" % (
+        difficulty,
+        MAX_LEVEL,
+        pool_size(difficulty),
+    )
+    put(scr, 0, 1, diff)
 
 
 def main(scr):
@@ -227,7 +327,8 @@ def main(scr):
         pass
     script = 0
     show_table = False
-    ch, romaji, accepted = pick(0)
+    difficulty = MAX_LEVEL
+    ch, romaji, accepted = pick(0, difficulty)
     user_input = ""
     message = ""
     fails = 0
@@ -258,7 +359,9 @@ def main(scr):
                         max(0, (W - 40) // 2),
                         "Table doesn't fit. Enlarge the terminal.",
                     )
-            draw_core(scr, H, W, ch, user_input, message, correct, total)
+            draw_core(
+                scr, H, W, ch, user_input, message, correct, total, difficulty
+            )
         scr.refresh()
         key = scr.getch()
         if key in QUIT_KEYS:
@@ -271,7 +374,7 @@ def main(scr):
             show_table = not show_table
         elif key == SCRIPT_KEY:
             script = 1 - script
-            ch, romaji, accepted = pick(script)
+            ch, romaji, accepted = pick(script, difficulty)
             user_input = ""
             message = ""
             fails = 0
@@ -279,7 +382,7 @@ def main(scr):
             total += 1
             if user_input.strip().lower() in accepted:
                 correct += 1
-                ch, romaji, accepted = pick(script, ch)
+                ch, romaji, accepted = pick(script, difficulty, ch)
                 user_input = ""
                 message = ""
                 fails = 0
@@ -290,6 +393,24 @@ def main(scr):
                 )
         elif key in BACKSPACE_KEYS:
             user_input = user_input[:-1]
+        elif key == DIFF_DOWN:
+            if difficulty > MIN_LEVEL:
+                difficulty -= 1
+                ch, romaji, accepted = pick(script, difficulty)
+                user_input = ""
+                message = ""
+                fails = 0
+            else:
+                message = "Already at the easiest difficulty."
+        elif key in DIFF_UP:
+            if difficulty < MAX_LEVEL:
+                difficulty += 1
+                ch, romaji, accepted = pick(script, difficulty)
+                user_input = ""
+                message = ""
+                fails = 0
+            else:
+                message = "Already at the hardest difficulty."
         elif 32 <= key <= 126:
             user_input = (user_input + chr(key))[:FIELD]
     try:
