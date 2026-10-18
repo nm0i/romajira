@@ -256,6 +256,8 @@ def pool_size(difficulty):
 
 def pick(script, difficulty, avoid=None):
     candidates = [entry for entry in POOLS[script] if entry[3] <= difficulty]
+    if not candidates:
+        raise ValueError("no glyphs at difficulty %d" % difficulty)
     if len(candidates) == 1:
         char, romaji, accepted, _ = candidates[0]
         return char, romaji, accepted
