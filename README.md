@@ -17,7 +17,7 @@ Reading kana has to become automatic before it's useful, and that only happens t
 - Answers are checked leniently — common alternative romanizations are accepted (`shi`/`si`, `tsu`/`tu`, `wo`/`o`, `ji`/`zi`, …), so spelling conventions never interrupt the drilling.
 - A first miss reveals a masked hint (one character hidden); a second miss shows the full answer, and the character stays up until you get it right.
 - Tab switches between the hiragana and katakana pools.
-- Ctrl+F / Ctrl+J toggles a full kana reference table you can keep open while drilling.
+- Ctrl+F / Ctrl+J toggles a kana reference table you can keep open while drilling; it shows only the characters in the current difficulty pool.
 
 ## Difficulty
 
