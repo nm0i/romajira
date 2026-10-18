@@ -316,6 +316,123 @@ def draw_core(
     put(scr, 0, 1, diff)
 
 
+class Quiz:
+    """State of the running drill: current card, score, and settings."""
+
+    def __init__(self):
+        self.script = 0
+        self.show_table = True
+        self.difficulty = MAX_LEVEL
+        self.char, self.romaji, self.accepted = pick(0, self.difficulty)
+        self.user_input = ""
+        self.message = ""
+        self.fails = 0
+        self.correct = 0
+        self.total = 0
+
+    def reset_card(self, avoid=None):
+        """Show a fresh card, clearing input, message, and miss count."""
+        self.char, self.romaji, self.accepted = pick(
+            self.script, self.difficulty, avoid
+        )
+        self.user_input = ""
+        self.message = ""
+        self.fails = 0
+
+    def toggle_table(self):
+        self.show_table = not self.show_table
+
+    def switch_script(self):
+        self.script = 1 - self.script
+        self.reset_card()
+
+    def set_difficulty(self, difficulty):
+        if MIN_LEVEL <= difficulty <= MAX_LEVEL:
+            self.difficulty = difficulty
+            self.reset_card()
+        elif difficulty < MIN_LEVEL:
+            self.message = "Already at the easiest difficulty."
+        else:
+            self.message = "Already at the hardest difficulty."
+
+    def submit(self):
+        if not self.user_input.strip():
+            self.message = "🐱"  # easter egg
+            return
+        self.total += 1
+        if self.user_input.strip().lower() in self.accepted:
+            self.correct += 1
+            self.reset_card(avoid=self.char)
+        else:
+            self.fails += 1
+            self.message = "Try again, it's " + (
+                masked(self.romaji, self.accepted)
+                if self.fails == 1
+                else self.romaji
+            )
+
+    def backspace(self):
+        self.user_input = self.user_input[:-1]
+
+    def type_char(self, key):
+        self.user_input = (self.user_input + chr(key))[:FIELD]
+
+
+def handle_key(quiz, key):
+    if key in TABLE_KEYS:
+        quiz.toggle_table()
+    elif key == SCRIPT_KEY:
+        quiz.switch_script()
+    elif key in ENTER_KEYS:
+        quiz.submit()
+    elif key in BACKSPACE_KEYS:
+        quiz.backspace()
+    elif key == DIFF_DOWN:
+        quiz.set_difficulty(quiz.difficulty - 1)
+    elif key in DIFF_UP:
+        quiz.set_difficulty(quiz.difficulty + 1)
+    elif 32 <= key <= 126:
+        quiz.type_char(key)
+
+
+def draw_screen(scr, quiz):
+    """Render one frame; returns False when the terminal is too small."""
+    H, W = scr.getmaxyx()
+    scr.erase()
+    if W < MIN_W or H < MIN_H:
+        put(scr, H // 2 - 1, 1, "Terminal too small.")
+        put(
+            scr,
+            H // 2,
+            1,
+            "Need at least %dx%d. Now %dx%d." % (MIN_W, MIN_H, W, H),
+        )
+        put(scr, H // 2 + 1, 1, "Resize, or press ctrl+c to quit.")
+        return False
+    if quiz.show_table:
+        if W >= TABLE_W and H >= TABLE_H + 8:
+            draw_table(scr, 1, W, quiz.script, quiz.difficulty)
+        else:
+            put(
+                scr,
+                2,
+                max(0, (W - 40) // 2),
+                "Table doesn't fit. Enlarge the terminal.",
+            )
+    draw_core(
+        scr,
+        H,
+        W,
+        quiz.char,
+        quiz.user_input,
+        quiz.message,
+        quiz.correct,
+        quiz.total,
+        quiz.difficulty,
+    )
+    return True
+
+
 def main(scr):
     scr.keypad(True)
     curses.nonl()
@@ -323,105 +440,16 @@ def main(scr):
         curses.curs_set(0)
     except curses.error:
         pass
-    script = 0
-    show_table = True
-    difficulty = MAX_LEVEL
-    char, romaji, accepted = pick(0, difficulty)
-    user_input = ""
-    message = ""
-    fails = 0
-    correct = 0
-    total = 0
+    quiz = Quiz()
     while True:
-        H, W = scr.getmaxyx()
-        scr.erase()
-        too_small = W < MIN_W or H < MIN_H
-        if too_small:
-            put(scr, H // 2 - 1, 1, "Terminal too small.")
-            put(
-                scr,
-                H // 2,
-                1,
-                "Need at least %dx%d. Now %dx%d." % (MIN_W, MIN_H, W, H),
-            )
-            put(scr, H // 2 + 1, 1, "Resize, or press ctrl+c to quit.")
-        else:
-            fits = W >= TABLE_W and H >= TABLE_H + 8
-            if show_table:
-                if fits:
-                    draw_table(scr, 1, W, script, difficulty)
-                else:
-                    put(
-                        scr,
-                        2,
-                        max(0, (W - 40) // 2),
-                        "Table doesn't fit. Enlarge the terminal.",
-                    )
-            draw_core(
-                scr,
-                H,
-                W,
-                char,
-                user_input,
-                message,
-                correct,
-                total,
-                difficulty,
-            )
+        too_small = not draw_screen(scr, quiz)
         scr.refresh()
         key = scr.getch()
         if key in QUIT_KEYS:
             break
-        if key == curses.KEY_RESIZE:
+        if key == curses.KEY_RESIZE or too_small:
             continue
-        if too_small:
-            continue
-        if key in TABLE_KEYS:
-            show_table = not show_table
-        elif key == SCRIPT_KEY:
-            script = 1 - script
-            char, romaji, accepted = pick(script, difficulty)
-            user_input = ""
-            message = ""
-            fails = 0
-        elif key in ENTER_KEYS:
-            if not user_input.strip():
-                message = "🐱"  # easter egg
-            else:
-                total += 1
-                if user_input.strip().lower() in accepted:
-                    correct += 1
-                    char, romaji, accepted = pick(script, difficulty, char)
-                    user_input = ""
-                    message = ""
-                    fails = 0
-                else:
-                    fails += 1
-                    message = "Try again, it's " + (
-                        masked(romaji, accepted) if fails == 1 else romaji
-                    )
-        elif key in BACKSPACE_KEYS:
-            user_input = user_input[:-1]
-        elif key == DIFF_DOWN:
-            if difficulty > MIN_LEVEL:
-                difficulty -= 1
-                char, romaji, accepted = pick(script, difficulty)
-                user_input = ""
-                message = ""
-                fails = 0
-            else:
-                message = "Already at the easiest difficulty."
-        elif key in DIFF_UP:
-            if difficulty < MAX_LEVEL:
-                difficulty += 1
-                char, romaji, accepted = pick(script, difficulty)
-                user_input = ""
-                message = ""
-                fails = 0
-            else:
-                message = "Already at the hardest difficulty."
-        elif 32 <= key <= 126:
-            user_input = (user_input + chr(key))[:FIELD]
+        handle_key(quiz, key)
     try:
         curses.curs_set(1)
     except curses.error:
