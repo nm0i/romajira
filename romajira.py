@@ -247,6 +247,9 @@ def pool_size(difficulty):
 
 def pick(script, difficulty, avoid=None):
     candidates = [entry for entry in POOLS[script] if entry[3] <= difficulty]
+    if len(candidates) == 1:
+        char, romaji, accepted, _ = candidates[0]
+        return char, romaji, accepted
     while True:
         char, romaji, accepted, _ = random.choice(candidates)
         if char != avoid:
