@@ -17,13 +17,15 @@ Reading kana has to become automatic before it's useful, and that only happens t
 - Answers are checked leniently — common alternative romanizations are accepted (`shi`/`si`, `tsu`/`tu`, `wo`/`o`, `ji`/`zi`, …), so spelling conventions never interrupt the drilling.
 - A first miss reveals a masked hint (one character hidden); kana with several accepted romanizations show every spelling, each masked. A second miss shows the full answer, and the character stays up until you get it right.
 - Tab switches between the hiragana and katakana pools.
-- Ctrl+F / Ctrl+J toggles a kana reference table you can keep open while drilling; it shows only the characters in the current difficulty pool.
+- Ctrl+F / Ctrl+J toggles a kana reference table you can keep open while drilling; it shows only the characters in the current difficulty pool, and its contracted-sounds section appears only at difficulty 7.
 
 ## Difficulty
 
-The drill starts at the maximum difficulty, where every kana is in the random pool. Press `-` to make it easier and `+` (or `=`) to make it harder.
+The drill starts at difficulty 6, where every base kana is in the random pool. Press `-` to make it easier and `+` (or `=`) to make it harder — difficulty 7 adds the contracted sounds.
 
-Difficulty 6 covers all kana.
+Difficulty 6 covers all base kana (71 symbols).
+
+Difficulty 7 adds the contracted sounds — きゃ, しゅ, ちょ, りょ, … — for 104 glyphs in all; their alternative spellings (`sha`/`sya`, `ju`/`zyu`, …) follow the same lenient checking as the base kana.
 
 Difficulty 1 covers only very common kana (12 symbols).
 
