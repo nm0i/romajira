@@ -27,4 +27,14 @@ Difficulty 6 covers all kana.
 
 Difficulty 1 covers only very common kana (12 symbols).
 
+## Notes
+
+Alternative romanizations reflect more than one transliteration convention (Hepburn and others), and the drill accepts any of them so a valid spelling never interrupts the flow. The card displays only one spelling, treated as primary:
+
+- を shows `wo` but also accepts `o`.
+- じ shows `ji` but also accepts `zi`; ぢ shows `ji` but also accepts `di`.
+- づ shows `zu` but also accepts `du`.
+
+Since じ and ぢ share the reading `ji`, and ず and づ share `zu`, accepting every spelling means the drill cannot tell which kana you intended. That keeps recall frictionless, but it does not exercise the (mostly historical) distinction between those pairs — and accepting `o` for を leans on a convention other than the `wo` shown on the card. To drill a single convention strictly, type the displayed spelling.
+
 
