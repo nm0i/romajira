@@ -256,12 +256,10 @@ def pick(script, difficulty, avoid=None):
 def masked(romaji, accepted):
     if len(romaji) < 2:
         return "*"
-    if romaji[-1] in accepted:
-        hint = romaji[:-1] + "*"
-        others = sorted(accepted - {romaji})
-        if others:
-            return hint + " / " + " / ".join(others)
-        return hint
+    others = sorted(accepted - {romaji})
+    if others:
+        parts = [romaji[:-1] + "*"] + [o[:-1] + "*" for o in others]
+        return " / ".join(parts)
     if random.getrandbits(1):
         return romaji[:-1] + "*"
     return "*" + romaji[-1]

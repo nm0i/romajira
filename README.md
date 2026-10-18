@@ -15,7 +15,7 @@ None. romajira is one Python 3 file using only the standard library (`curses`); 
 Reading kana has to become automatic before it's useful, and that only happens through fast, repeated recall. romajira is a minimal drill for exactly that: it shows one random character, you type the romaji, and it keeps score.
 
 - Answers are checked leniently — common alternative romanizations are accepted (`shi`/`si`, `tsu`/`tu`, `wo`/`o`, `ji`/`zi`, …), so spelling conventions never interrupt the drilling.
-- A first miss reveals a masked hint (one character hidden); a second miss shows the full answer, and the character stays up until you get it right.
+- A first miss reveals a masked hint (one character hidden); kana with several accepted romanizations show every spelling, each masked. A second miss shows the full answer, and the character stays up until you get it right.
 - Tab switches between the hiragana and katakana pools.
 - Ctrl+F / Ctrl+J toggles a kana reference table you can keep open while drilling; it shows only the characters in the current difficulty pool.
 
