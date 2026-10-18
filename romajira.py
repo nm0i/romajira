@@ -127,6 +127,7 @@ LEVEL = {
     "ら": 2,
     "も": 2,
     "あ": 2,
+    "を": 2,
     # 3  Moderately common
     "こ": 3,
     "ま": 3,
@@ -174,7 +175,15 @@ LEVEL = {
     "ぴ": 6,
     "ぷ": 6,
     "ぺ": 6,
+    "げ": 6,
+    "ぢ": 6,
+    "づ": 6,
+    "べ": 6,
+    "ぼ": 6,
 }
+
+all_kana = {cell[0] for _, cells in KANA_ROWS for cell in cells if cell}
+assert set(LEVEL) == all_kana, "every kana in KANA_ROWS must have a LEVEL entry"
 
 TABLE_W = LBLW + 5 * CELLW
 TABLE_H = len(KANA_ROWS) + 2
@@ -232,7 +241,7 @@ def pool(script):
                     kana(hiragana, script),
                     romaji,
                     {romaji} | ALT.get(hiragana, set()),
-                    LEVEL.get(hiragana, MAX_LEVEL),
+                    LEVEL[hiragana],
                 )
             )
     return out
@@ -282,7 +291,7 @@ def draw_table(scr, top, W, script, difficulty):
         for cell in cells:
             if cell is not None:
                 hiragana, romaji = cell
-                if LEVEL.get(hiragana, MAX_LEVEL) <= difficulty:
+                if LEVEL[hiragana] <= difficulty:
                     glyph = kana(hiragana, script)
                     put(scr, y, x, glyph + " " + romaji)
                     put(scr, y, x + wlen(glyph) + 1, romaji, curses.A_BOLD)
@@ -298,18 +307,12 @@ def draw_core(
     lead = "What is this character:  ["
     line = lead + char + "]"
     x = max(0, (W - wlen(line)) // 2)
-    # Keep wide glyphs on even columns: some terminals render double-width
-    # characters misaligned (or as garbage) when they start on an odd column.
-    x += x & 1  # Aligning to even
     put(scr, char_row, x, line)
     field = "[" + user_input.ljust(FIELD) + "]"
     fx = max(0, (W - wlen(field)) // 2)
     put(scr, input_row, fx, field)
     if message:
         mx = max(0, (W - wlen(message)) // 2)
-        # Same even-column rule as above: the answer hint shows wide
-        # characters (e.g. the kana itself) on some terminals.
-        mx += mx & 1  # Aligning to even
         put(scr, msg_row, mx, message)
     put(scr, H - 1, 1, HELP)
     stats = "%d/%d" % (correct, total)
