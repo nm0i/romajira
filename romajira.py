@@ -280,9 +280,9 @@ def draw_table(scr, top, W, script, difficulty):
         for cell in cells:
             if cell is not None:
                 hiragana, romaji = cell
-                glyph = kana(hiragana, script)
-                put(scr, y, x, glyph + " " + romaji)
                 if LEVEL.get(hiragana, MAX_LEVEL) <= difficulty:
+                    glyph = kana(hiragana, script)
+                    put(scr, y, x, glyph + " " + romaji)
                     put(scr, y, x + wlen(glyph) + 1, romaji, curses.A_BOLD)
             x += CELLW
 
