@@ -9,7 +9,7 @@ import unicodedata
 LBLW = 3
 CELLW = 8
 FIELD = 16
-HELP = "tab:script | difficulty:-/+ (=) | ctrl+f/j:table | enter | esc"
+HELP = "tab:script | difficulty:-/+ | ctrl+f/j:table | enter | esc"
 MIN_W = len(HELP) + 1
 MIN_H = 11
 MIN_LEVEL = 1
@@ -188,7 +188,9 @@ def kana(hiragana, script):
 
 
 def wlen(s):
-    return sum(2 if unicodedata.east_asian_width(c) in ("W", "F") else 1 for c in s)
+    return sum(
+        2 if unicodedata.east_asian_width(c) in ("W", "F") else 1 for c in s
+    )
 
 
 def pad(s, w):
@@ -285,7 +287,9 @@ def draw_table(scr, top, W, script, difficulty):
             x += CELLW
 
 
-def draw_core(scr, H, W, char, user_input, message, correct, total, difficulty):
+def draw_core(
+    scr, H, W, char, user_input, message, correct, total, difficulty
+):
     char_row = H - 6
     input_row = H - 4
     msg_row = H - 2
@@ -320,7 +324,7 @@ def main(scr):
     except curses.error:
         pass
     script = 0
-    show_table = False
+    show_table = True
     difficulty = MAX_LEVEL
     char, romaji, accepted = pick(0, difficulty)
     user_input = ""
@@ -353,7 +357,17 @@ def main(scr):
                         max(0, (W - 40) // 2),
                         "Table doesn't fit. Enlarge the terminal.",
                     )
-            draw_core(scr, H, W, char, user_input, message, correct, total, difficulty)
+            draw_core(
+                scr,
+                H,
+                W,
+                char,
+                user_input,
+                message,
+                correct,
+                total,
+                difficulty,
+            )
         scr.refresh()
         key = scr.getch()
         if key in QUIT_KEYS:
