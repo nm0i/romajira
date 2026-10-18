@@ -5,6 +5,7 @@ import locale
 import os
 import random
 import unicodedata
+from curses import ascii as cascii
 
 LBLW = 3
 CELLW = 8
@@ -296,6 +297,8 @@ def draw_core(
     lead = "What is this character:  ["
     line = lead + char + "]"
     x = max(0, (W - wlen(line)) // 2)
+    # Keep wide glyphs on even columns: some terminals render double-width
+    # characters misaligned (or as garbage) when they start on an odd column.
     x += x & 1  # Aligning to even
     put(scr, char_row, x, line)
     field = "[" + user_input.ljust(FIELD) + "]"
@@ -303,6 +306,8 @@ def draw_core(
     put(scr, input_row, fx, field)
     if message:
         mx = max(0, (W - wlen(message)) // 2)
+        # Same even-column rule as above: the answer hint shows wide
+        # characters (e.g. the kana itself) on some terminals.
         mx += mx & 1  # Aligning to even
         put(scr, msg_row, mx, message)
     put(scr, H - 1, 1, HELP)
@@ -391,7 +396,7 @@ def handle_key(quiz, key):
         quiz.set_difficulty(quiz.difficulty - 1)
     elif key in DIFF_UP:
         quiz.set_difficulty(quiz.difficulty + 1)
-    elif 32 <= key <= 126:
+    elif cascii.isprint(key):
         quiz.type_char(key)
 
 
