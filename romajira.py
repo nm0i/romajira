@@ -14,7 +14,8 @@ HELP = "tab:script | difficulty:-/+ | ctrl+f/j:table | enter | esc"
 MIN_W = len(HELP) + 1
 MIN_H = 11
 MIN_LEVEL = 1
-MAX_LEVEL = 6
+MAX_LEVEL = 7
+START_LEVEL = 6
 QUIT_KEYS = (3, 27)  # ctrl+c and esc
 TABLE_KEYS = (6, 10)  # ctrl+f and ctrl+j
 SCRIPT_KEY = 9  # tab
@@ -90,6 +91,53 @@ KANA_ROWS = [
     ),
 ]
 
+DIGRAPH_ROWS = [
+    (
+        "k",
+        [("きゃ", "kya"), ("きゅ", "kyu"), ("きょ", "kyo")],
+    ),
+    (
+        "s",
+        [("しゃ", "sha"), ("しゅ", "shu"), ("しょ", "sho")],
+    ),
+    (
+        "t",
+        [("ちゃ", "cha"), ("ちゅ", "chu"), ("ちょ", "cho")],
+    ),
+    (
+        "n",
+        [("にゃ", "nya"), ("にゅ", "nyu"), ("にょ", "nyo")],
+    ),
+    (
+        "h",
+        [("ひゃ", "hya"), ("ひゅ", "hyu"), ("ひょ", "hyo")],
+    ),
+    (
+        "m",
+        [("みゃ", "mya"), ("みゅ", "myu"), ("みょ", "myo")],
+    ),
+    (
+        "r",
+        [("りゃ", "rya"), ("りゅ", "ryu"), ("りょ", "ryo")],
+    ),
+    (
+        "g",
+        [("ぎゃ", "gya"), ("ぎゅ", "gyu"), ("ぎょ", "gyo")],
+    ),
+    (
+        "j",
+        [("じゃ", "ja"), ("じゅ", "ju"), ("じょ", "jo")],
+    ),
+    (
+        "b",
+        [("びゃ", "bya"), ("びゅ", "byu"), ("びょ", "byo")],
+    ),
+    (
+        "p",
+        [("ぴゃ", "pya"), ("ぴゅ", "pyu"), ("ぴょ", "pyo")],
+    ),
+]
+
 ALT = {
     "し": {"shi", "si"},
     "ち": {"chi", "ti"},
@@ -100,6 +148,15 @@ ALT = {
     "ぢ": {"ji", "di"},
     "づ": {"zu", "du"},
     "ん": {"n", "nn"},
+    "しゃ": {"sha", "sya"},
+    "しゅ": {"shu", "syu"},
+    "しょ": {"sho", "syo"},
+    "ちゃ": {"cha", "tya"},
+    "ちゅ": {"chu", "tyu"},
+    "ちょ": {"cho", "tyo"},
+    "じゃ": {"ja", "jya", "zya"},
+    "じゅ": {"ju", "jyu", "zyu"},
+    "じょ": {"jo", "jyo", "zyo"},
 }
 
 LEVEL = {
@@ -180,17 +237,72 @@ LEVEL = {
     "づ": 6,
     "べ": 6,
     "ぼ": 6,
+    # 7  Contracted sounds
+    "きゃ": 7,
+    "きゅ": 7,
+    "きょ": 7,
+    "しゃ": 7,
+    "しゅ": 7,
+    "しょ": 7,
+    "ちゃ": 7,
+    "ちゅ": 7,
+    "ちょ": 7,
+    "にゃ": 7,
+    "にゅ": 7,
+    "にょ": 7,
+    "ひゃ": 7,
+    "ひゅ": 7,
+    "ひょ": 7,
+    "みゃ": 7,
+    "みゅ": 7,
+    "みょ": 7,
+    "りゃ": 7,
+    "りゅ": 7,
+    "りょ": 7,
+    "ぎゃ": 7,
+    "ぎゅ": 7,
+    "ぎょ": 7,
+    "じゃ": 7,
+    "じゅ": 7,
+    "じょ": 7,
+    "びゃ": 7,
+    "びゅ": 7,
+    "びょ": 7,
+    "ぴゃ": 7,
+    "ぴゅ": 7,
+    "ぴょ": 7,
 }
 
-all_kana = {cell[0] for _, cells in KANA_ROWS for cell in cells if cell}
+all_kana = {
+    cell[0]
+    for rows in (KANA_ROWS, DIGRAPH_ROWS)
+    for _, cells in rows
+    for cell in cells
+    if cell
+}
 assert set(LEVEL) == all_kana, "every kana in KANA_ROWS must have a LEVEL entry"
 
 TABLE_W = LBLW + 5 * CELLW
-TABLE_H = len(KANA_ROWS) + 2
+
+
+def digraphs_active(difficulty):
+    return any(
+        LEVEL[cell[0]] <= difficulty
+        for _, cells in DIGRAPH_ROWS
+        for cell in cells
+        if cell
+    )
+
+
+def table_height(difficulty):
+    height = len(KANA_ROWS) + 2
+    if digraphs_active(difficulty):
+        height += len(DIGRAPH_ROWS) + 3
+    return height
 
 
 def to_kata(hiragana):
-    return chr(ord(hiragana) + 0x60)
+    return "".join(chr(ord(c) + 0x60) for c in hiragana)
 
 
 def kana(hiragana, script):
@@ -231,7 +343,7 @@ def put(scr, y, x, s, attr=curses.A_NORMAL):
 
 def pool(script):
     out = []
-    for _, cells in KANA_ROWS:
+    for _, cells in KANA_ROWS + DIGRAPH_ROWS:
         for cell in cells:
             if cell is None:
                 continue
@@ -279,13 +391,12 @@ def masked(romaji, accepted):
     return "*" + romaji[-1]
 
 
-def draw_table(scr, top, W, script, difficulty):
-    title = "Hiragana to romaji" if script == 0 else "Katakana to romaji"
+def draw_section(scr, top, W, script, difficulty, rows, vowels, title):
     left = max(0, (W - TABLE_W) // 2)
     put(scr, top, left + max(0, (TABLE_W - wlen(title)) // 2), title)
-    header = pad("", LBLW) + "".join(pad(vowel, CELLW) for vowel in "aiueo")
+    header = pad("", LBLW) + "".join(pad(vowel, CELLW) for vowel in vowels)
     put(scr, top + 1, left, header)
-    for row, (label, cells) in enumerate(KANA_ROWS):
+    for row, (label, cells) in enumerate(rows):
         y = top + 2 + row
         x = left
         put(scr, y, x, pad(label, LBLW))
@@ -298,6 +409,17 @@ def draw_table(scr, top, W, script, difficulty):
                     put(scr, y, x, glyph + " " + romaji)
                     put(scr, y, x + wlen(glyph) + 1, romaji, curses.A_BOLD)
             x += CELLW
+
+
+def draw_table(scr, top, W, script, difficulty):
+    title = "Hiragana to romaji" if script == 0 else "Katakana to romaji"
+    draw_section(scr, top, W, script, difficulty, KANA_ROWS, "aiueo", title)
+    if digraphs_active(difficulty):
+        top += len(KANA_ROWS) + 3
+        draw_section(
+            scr, top, W, script, difficulty, DIGRAPH_ROWS, "auo",
+            "Contracted sounds",
+        )
 
 
 def draw_core(
@@ -333,7 +455,7 @@ class Quiz:
     def __init__(self):
         self.script = 0
         self.show_table = True
-        self.difficulty = MAX_LEVEL
+        self.difficulty = START_LEVEL
         self.char, self.romaji, self.accepted = pick(0, self.difficulty)
         self.user_input = ""
         self.message = ""
@@ -421,15 +543,14 @@ def draw_screen(scr, quiz):
         put(scr, H // 2 + 1, 1, "Resize, or press ctrl+c to quit.")
         return False
     if quiz.show_table:
-        if W >= TABLE_W and H >= TABLE_H + 8:
+        if W >= TABLE_W and H >= table_height(quiz.difficulty) + 8:
             draw_table(scr, 1, W, quiz.script, quiz.difficulty)
         else:
-            put(
-                scr,
-                2,
-                max(0, (W - 40) // 2),
-                "Table doesn't fit. Enlarge the terminal.",
+            note = "Table doesn't fit. Enlarge the terminal to %dx%d." % (
+                TABLE_W,
+                table_height(quiz.difficulty) + 8,
             )
+            put(scr, 2, max(0, (W - wlen(note)) // 2), note)
     draw_core(
         scr,
         H,
