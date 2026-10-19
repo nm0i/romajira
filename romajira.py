@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import curses
 import locale
 import os
@@ -589,9 +590,21 @@ def main(scr):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Terminal flashcard trainer for kana romaji readings."
+    )
+    parser.add_argument(
+        "--force-utf",
+        action="store_true",
+        help="bypass the UTF-8 terminal locale check",
+    )
+    args = parser.parse_args()
     locale.setlocale(locale.LC_ALL, "")
-    if "utf" not in locale.getpreferredencoding(False).lower():
-        print("romajira needs a UTF-8 terminal locale")
+    if (
+        "utf" not in locale.getpreferredencoding(False).lower()
+        and not args.force_utf
+    ):
+        print("romajira needs a UTF-8 terminal. You can force it with --force-utf")
         raise SystemExit(1)
     os.environ["ESCDELAY"] = "25"
     try:
