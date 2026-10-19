@@ -14,9 +14,13 @@ FIELD = 16
 HELP = "tab:script | difficulty:-/+ | ctrl+f/j:table | enter | esc"
 MIN_W = len(HELP) + 1
 MIN_H = 11
-MIN_LEVEL = 1
+MIN_LEVEL = 0
 MAX_LEVEL = 7
-START_LEVEL = 6
+START_LEVEL = 0
+LADDER_START = 3
+LADDER_ADD = 7
+LADDER_DROP = 5
+LADDER_MIN = 3
 QUIT_KEYS = (3, 27)  # ctrl+c and esc
 TABLE_KEYS = (6, 10)  # ctrl+f and ctrl+j
 SCRIPT_KEY = 9  # tab
@@ -281,24 +285,38 @@ all_kana = {
     for cell in cells
     if cell
 }
-assert set(LEVEL) == all_kana, "every kana in KANA_ROWS must have a LEVEL entry"
+assert (
+    set(LEVEL) == all_kana
+), "every kana in KANA_ROWS must have a LEVEL entry"
+
+TABLE_ORDER = [
+    cell[0] for _, cells in KANA_ROWS + DIGRAPH_ROWS for cell in cells if cell
+]
+LADDER_ORDER = sorted(TABLE_ORDER, key=lambda key: LEVEL[key])
 
 TABLE_W = LBLW + 5 * CELLW
 
 
-def digraphs_active(difficulty):
-    return any(
-        LEVEL[cell[0]] <= difficulty
-        for _, cells in DIGRAPH_ROWS
-        for cell in cells
-        if cell
-    )
+def visible_kana(difficulty, active=None):
+    if active is None:
+        return lambda key: LEVEL[key] <= difficulty
+    active = set(active)
+    return lambda key: key in active
 
 
-def table_height(difficulty):
+def digraph_rows(visible):
+    return [
+        (label, cells)
+        for label, cells in DIGRAPH_ROWS
+        if any(cell and visible(cell[0]) for cell in cells)
+    ]
+
+
+def table_height(difficulty, active=None):
     height = len(KANA_ROWS) + 2
-    if digraphs_active(difficulty):
-        height += len(DIGRAPH_ROWS) + 3
+    rows = digraph_rows(visible_kana(difficulty, active))
+    if rows:
+        height += len(rows) + 3
     return height
 
 
@@ -349,12 +367,14 @@ def pool(script):
             if cell is None:
                 continue
             hiragana, romaji = cell
+            accepted = {romaji} | ALT.get(hiragana, set())
             out.append(
                 (
                     kana(hiragana, script),
                     romaji,
-                    {romaji} | ALT.get(hiragana, set()),
+                    accepted,
                     LEVEL[hiragana],
+                    hiragana,
                 )
             )
     return out
@@ -367,17 +387,18 @@ def pool_size(difficulty):
     return sum(1 for entry in POOLS[0] if entry[3] <= difficulty)
 
 
-def pick(script, difficulty, avoid=None):
-    candidates = [entry for entry in POOLS[script] if entry[3] <= difficulty]
+def pick(script, difficulty, avoid=None, active=None):
+    visible = visible_kana(difficulty, active)
+    candidates = [entry for entry in POOLS[script] if visible(entry[4])]
     if not candidates:
         raise ValueError("no glyphs at difficulty %d" % difficulty)
     if len(candidates) == 1:
-        char, romaji, accepted, _ = candidates[0]
-        return char, romaji, accepted
+        char, romaji, accepted, _, hiragana = candidates[0]
+        return char, romaji, accepted, hiragana
     while True:
-        char, romaji, accepted, _ = random.choice(candidates)
+        char, romaji, accepted, _, hiragana = random.choice(candidates)
         if char != avoid:
-            return char, romaji, accepted
+            return char, romaji, accepted, hiragana
 
 
 def masked(romaji, accepted):
@@ -392,7 +413,7 @@ def masked(romaji, accepted):
     return "*" + romaji[-1]
 
 
-def draw_section(scr, top, W, script, difficulty, rows, vowels, title):
+def draw_section(scr, top, W, script, rows, vowels, title, visible):
     left = max(0, (W - TABLE_W) // 2)
     put(scr, top, left + max(0, (TABLE_W - wlen(title)) // 2), title)
     header = pad("", LBLW) + "".join(pad(vowel, CELLW) for vowel in vowels)
@@ -405,26 +426,37 @@ def draw_section(scr, top, W, script, difficulty, rows, vowels, title):
         for cell in cells:
             if cell is not None:
                 hiragana, romaji = cell
-                if LEVEL[hiragana] <= difficulty:
+                if visible(hiragana):
                     glyph = kana(hiragana, script)
                     put(scr, y, x, glyph + " " + romaji)
                     put(scr, y, x + wlen(glyph) + 1, romaji, curses.A_BOLD)
             x += CELLW
 
 
-def draw_table(scr, top, W, script, difficulty):
+def draw_table(scr, top, W, script, difficulty, active=None):
+    visible = visible_kana(difficulty, active)
     title = "Hiragana to romaji" if script == 0 else "Katakana to romaji"
-    draw_section(scr, top, W, script, difficulty, KANA_ROWS, "aiueo", title)
-    if digraphs_active(difficulty):
+    draw_section(scr, top, W, script, KANA_ROWS, "aiueo", title, visible)
+    rows = digraph_rows(visible)
+    if rows:
         top += len(KANA_ROWS) + 3
         draw_section(
-            scr, top, W, script, difficulty, DIGRAPH_ROWS, "auo",
-            "Contracted sounds",
+            scr, top, W, script, rows, "auo", "Contracted sounds", visible
         )
 
 
 def draw_core(
-    scr, H, W, char, user_input, message, correct, total, difficulty
+    scr,
+    H,
+    W,
+    char,
+    user_input,
+    message,
+    correct,
+    total,
+    difficulty,
+    active=None,
+    streak=0,
 ):
     char_row = H - 6
     input_row = H - 4
@@ -442,11 +474,14 @@ def draw_core(
     put(scr, H - 1, 1, HELP)
     stats = "%d/%d" % (correct, total)
     put(scr, 0, max(1, W - wlen(stats) - 1), stats)
-    diff = "difficulty %d/%d (%d kana)" % (
-        difficulty,
-        MAX_LEVEL,
-        pool_size(difficulty),
-    )
+    if active is None:
+        diff = "difficulty %d/%d (%d kana)" % (
+            difficulty,
+            MAX_LEVEL,
+            pool_size(difficulty),
+        )
+    else:
+        diff = "adaptive: %d kana (streak %+d)" % (len(active), streak)
     put(scr, 0, 1, diff)
 
 
@@ -457,17 +492,23 @@ class Quiz:
         self.script = 0
         self.show_table = True
         self.difficulty = START_LEVEL
-        self.char, self.romaji, self.accepted = pick(0, self.difficulty)
+        self.active = LADDER_ORDER[:LADDER_START] if START_LEVEL == 0 else None
+        self.streak = 0
+        self.failed_key = None
         self.user_input = ""
         self.message = ""
         self.fails = 0
         self.correct = 0
         self.total = 0
+        self.reset_card()
+
+    def adaptive(self):
+        return self.active is not None
 
     def reset_card(self, avoid=None):
         """Show a fresh card, clearing input, message, and miss count."""
-        self.char, self.romaji, self.accepted = pick(
-            self.script, self.difficulty, avoid
+        self.char, self.romaji, self.accepted, self.key = pick(
+            self.script, self.difficulty, avoid, self.active
         )
         self.user_input = ""
         self.message = ""
@@ -481,22 +522,59 @@ class Quiz:
         self.reset_card()
 
     def set_difficulty(self, difficulty):
-        if MIN_LEVEL <= difficulty <= MAX_LEVEL:
-            self.difficulty = difficulty
+        if difficulty == 0 and not self.adaptive():
+            self.difficulty = 0
+            self.active = LADDER_ORDER[:LADDER_START]
+            self.streak = 0
+            self.failed_key = None
             self.reset_card()
         elif difficulty < MIN_LEVEL:
             self.message = "Already at the easiest difficulty."
-        else:
+        elif difficulty > MAX_LEVEL:
             self.message = "Already at the hardest difficulty."
+        else:
+            self.difficulty = difficulty
+            self.active = None
+            self.streak = 0
+            self.reset_card()
+
+    def ladder_step(self, first_try):
+        """Fold one answered card into the ladder; announce add or removal."""
+        if first_try:
+            self.streak += 1
+            if self.streak < LADDER_ADD:
+                return None
+            self.streak = 0
+            if len(self.active) == len(LADDER_ORDER):
+                return None
+            added = next(k for k in LADDER_ORDER if k not in self.active)
+            self.active.append(added)
+            return "+ %s added" % kana(added, self.script)
+        self.failed_key = self.key
+        self.streak = min(self.streak, 0) - 1
+        if self.streak > -LADDER_DROP or len(self.active) <= LADDER_MIN:
+            return None
+        self.streak = 0
+        drop = (
+            self.failed_key
+            if self.failed_key in self.active
+            else self.active[-1]
+        )
+        self.active.remove(drop)
+        self.reset_card()
+        return "- %s removed" % kana(drop, self.script)
 
     def submit(self):
         if not self.user_input.strip():
             self.message = "🐱"  # easter egg
             return
+        first_try = self.fails == 0
         self.total += 1
         if self.user_input.strip().lower() in self.accepted:
             self.correct += 1
+            announce = self.ladder_step(first_try) if self.adaptive() else None
             self.reset_card(avoid=self.char)
+            self.message = announce or ""
         else:
             self.fails += 1
             self.message = "Try again, it's " + (
@@ -504,6 +582,10 @@ class Quiz:
                 if self.fails == 1
                 else self.romaji
             )
+            if self.adaptive():
+                announce = self.ladder_step(False)
+                if announce:
+                    self.message = announce
 
     def backspace(self):
         self.user_input = self.user_input[:-1]
@@ -544,12 +626,13 @@ def draw_screen(scr, quiz):
         put(scr, H // 2 + 1, 1, "Resize, or press ctrl+c to quit.")
         return False
     if quiz.show_table:
-        if W >= TABLE_W and H >= table_height(quiz.difficulty) + 8:
-            draw_table(scr, 1, W, quiz.script, quiz.difficulty)
+        height = table_height(quiz.difficulty, quiz.active)
+        if W >= TABLE_W and H >= height + 8:
+            draw_table(scr, 1, W, quiz.script, quiz.difficulty, quiz.active)
         else:
             note = "Table doesn't fit. Enlarge the terminal to %dx%d." % (
                 TABLE_W,
-                table_height(quiz.difficulty) + 8,
+                height + 8,
             )
             put(scr, 2, max(0, (W - wlen(note)) // 2), note)
     draw_core(
@@ -562,6 +645,8 @@ def draw_screen(scr, quiz):
         quiz.correct,
         quiz.total,
         quiz.difficulty,
+        quiz.active,
+        quiz.streak,
     )
     return True
 
@@ -604,7 +689,9 @@ if __name__ == "__main__":
         "utf" not in locale.getpreferredencoding(False).lower()
         and not args.force_utf
     ):
-        print("romajira needs a UTF-8 terminal. You can force it with --force-utf")
+        print(
+            "romajira needs a UTF-8 terminal. You can force it with --force-utf"
+        )
         raise SystemExit(1)
     os.environ["ESCDELAY"] = "25"
     try:

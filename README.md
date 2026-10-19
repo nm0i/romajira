@@ -21,7 +21,9 @@ Reading kana has to become automatic, and that only happens through fast, repeat
 
 ## Difficulty
 
-The drill starts at difficulty 6, where every base kana is in the random pool. Press `-` to make it easier and `+` (or `=`) to make it harder — difficulty 7 adds the contracted sounds.
+Default difficulty is an adaptive ladder difficulty that gradually adds kana.
+
+Press `-` to make it easier and `+` (or `=`) to make it harder —.
 
 Difficulty 1 covers only very common kana (12 symbols).
 
