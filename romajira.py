@@ -8,19 +8,21 @@ import random
 import unicodedata
 from curses import ascii as cascii
 
-LBLW = 3
-CELLW = 8
-FIELD = 16
+# Magic values
+
+LBLW = 3  # width of the consonant-label column in the reference table
+CELLW = 8  # width of one kana cell in the reference table
+FIELD = 16  # max length of the typed romaji input
 HELP = "tab:script | difficulty:-/+ | ctrl+f/j:table | enter | esc"
-MIN_W = len(HELP) + 1
-MIN_H = 11
-MIN_LEVEL = 0
-MAX_LEVEL = 7
-START_LEVEL = 0
-LADDER_START = 3
-LADDER_ADD = 7
-LADDER_DROP = 5
-LADDER_MIN = 3
+MIN_W = len(HELP) + 1  # minimum terminal width: must fit the help line
+MIN_H = 11  # minimum terminal height for the card UI
+MIN_LEVEL = 0  # lowest selectable level; 0 selects the adaptive ladder
+MAX_LEVEL = 7  # highest difficulty: all base kana plus contracted sounds
+START_LEVEL = 0  # difficulty at launch; 0 = adaptive ladder
+LADDER_START = 3  # number of kana the adaptive ladder starts with
+LADDER_ADD = 7  # first-try streak that adds the next kana
+LADDER_DROP = 5  # miss streak that removes a kana
+LADDER_MIN = 3  # smallest size the adaptive ladder may shrink to
 QUIT_KEYS = (3, 27)  # ctrl+c and esc
 TABLE_KEYS = (6, 10)  # ctrl+f and ctrl+j
 SCRIPT_KEY = 9  # tab
